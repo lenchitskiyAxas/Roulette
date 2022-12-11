@@ -6,15 +6,13 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.FloatTweenSpec
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -29,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -41,33 +41,69 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             RouletteTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background) {
-                    Box(modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+                val isPlaying = remember { mutableStateOf(false) }
+                var currentRotation by remember { mutableStateOf(0f) }
+                val rotation = remember { Animatable(currentRotation) }
 
-                        PieChart2(patchRoulette)
+                LaunchedEffect(isPlaying.value) {
+
+                    if (isPlaying.value) {
+                        // Infinite repeatable rotation when is playing
+                        rotation.animateTo(
+                            targetValue = currentRotation + 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            )
+                        ) {
+                            currentRotation = value
+                        }
+                    } else {
+                        if (currentRotation > 0f) {
+                            // Slow down rotation on pause
+                            rotation.animateTo(
+                                targetValue = currentRotation + 50,
+                                animationSpec = tween(
+                                    durationMillis = 1250,
+                                    easing = LinearOutSlowInEasing
+                                )
+                            ) {
+                                currentRotation = value
+                            }
+                        }
                     }
 
+                }
+
+                Surface(modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background) {
+
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(modifier = Modifier
+                            .wrapContentSize()
+                            .rotate(rotation.value),
+                            contentAlignment = Alignment.Center
+                        ) {
+
+                            PieChart(patchRoulette)
+                        }
+
+                        Button(onClick = {
+                            isPlaying.value = !isPlaying.value
+                        }) {
+                            Text(text = "Stop/Start")
+
+                        }
+                    }
                 }
             }
         }
     }
 }
-
-private fun getPositionFromAngle(angles: List<Float>, touchAngle: Double): Int {
-    var totalAngle = 0f
-    for ((i, angle) in angles.withIndex()) {
-        totalAngle += angle
-        if (touchAngle.toFloat() == totalAngle) {
-            return i
-        }
-    }
-    return -1
-}
-
 
 @Composable
 fun PieChart(dataPatch: List<PatchRoulette>,
@@ -75,17 +111,14 @@ fun PieChart(dataPatch: List<PatchRoulette>,
     val radiusInSize = size / 2
     var radiusInPx = 0F
     val sum = dataPatch.sum()
-    var startAngle = 0f
-    val angles = mutableListOf<Float>()
+    var startAngle = -90f
     val regions = mutableListOf<Region>()
     val paths = mutableListOf<Path>()
     var start by remember { mutableStateOf(false) }
-
     val sweepPre by animateFloatAsState(
         targetValue = if (start) 1f else 0f,
         animationSpec = FloatTweenSpec(duration = 1000)
     )
-
     val proportions = dataPatch.map {
         it.value * 100 / sum
     }
@@ -103,21 +136,23 @@ fun PieChart(dataPatch: List<PatchRoulette>,
                 detectTapGestures(
                     onTap = {
                         val x = it.x - radiusInPx
-                        val y = it.y - radiusInPx
-//
-//                        Log.e(TAG, "brute onTap: x = ${it.x} y = ${it.y}")
-                        Log.e(TAG, "pointerInput onTap: x = $x y = $y")
-
+                        val y = (it.y - radiusInPx) * -1
+                        val a1 = atan2(x, y) * 180 / PI
+                        val a2 = atan2(x * -1, y * -1) * 180 / PI
+                        val grad = if (a1 < 0) 180 + a2 else a1
                         var position = -1
+                        var sweepAnglesSum = 0F
 
-                        regions.forEachIndexed { index, region ->
-
-//                            Log.e(TAG, "onTapList: top ${region.bounds.left} x ${region.bounds.top} x ${region.bounds.right} x ${region.bounds.bottom}")
-                            if (region.bounds.contains(x.toInt(), y.toInt())) {
-                                position = index
+                        run breaking@{
+                            sweepAngles.forEachIndexed { index, angles ->
+                                sweepAnglesSum += angles
+                                if (grad < sweepAnglesSum) {
+                                    position = index
+                                    return@breaking
+                                }
                             }
-
                         }
+
                         Log.e(TAG, "onTap: $position")
 
                     }
@@ -147,12 +182,28 @@ fun PieChart(dataPatch: List<PatchRoulette>,
 
                     Log.e(TAG, "size rect: i = $index " +
                             "left = ${region.bounds.left}  " +
-                            "top = ${region.bounds.top.toInt()}  " +
-                            "right = ${region.bounds.right.toInt()} " +
-                            "bottom = ${region.bounds.bottom.toInt()}")
+                            "top = ${region.bounds.top}  " +
+                            "right = ${region.bounds.right} " +
+                            "bottom = ${region.bounds.bottom}")
 
-                    paths.add(index, path)
-                    regions.add(index, region)
+
+                    val paint = android.graphics.Paint().apply {
+                        textAlign = android.graphics.Paint.Align.CENTER
+                        textSize = 10f
+                        color = 0xFF000000.toInt()
+                    }
+
+                    val first = (left + top + right + bottom) / 4
+
+                    Log.e(TAG,
+                        "center rect: x = ${path.getBounds().topCenter.x}  y = ${path.getBounds().bottomCenter.y} ")
+
+                    it.nativeCanvas.drawText(
+                        dataPatch[index].text,
+                        path.getBounds().topCenter.x,
+                        path.getBounds().bottomCenter.y,
+                        paint)
+
                     drawPath(path = path, color = patchRoulette.color)
                     path.reset()
 
@@ -221,15 +272,30 @@ fun PieChart2(
             }
     ) {
         radiusInPx = radiusInSize.toPx()
-        for (i in sweepAngles.indices) {
-            drawArc(
-                color = dataPatch[i].color,
-                startAngle = startAngle,
-                sweepAngle = sweepAngles[i],
-                useCenter = true
-            )
 
-            startAngle += sweepAngles[i]
+        sweepAngles.forEachIndexed { index, fl ->
+
+            drawIntoCanvas {
+                drawArc(
+                    color = dataPatch[index].color,
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngles[index],
+                    useCenter = true
+                )
+
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    textSize = 20f
+                    color = 0xFF000000.toInt()
+                }
+
+
+                it.nativeCanvas.drawText(dataPatch[index].text, center.x, center.y, paint)
+            }
+
+            startAngle += sweepAngles[index]
+
+
         }
     }
 }
