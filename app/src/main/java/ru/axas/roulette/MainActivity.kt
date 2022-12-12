@@ -1,6 +1,7 @@
 package ru.axas.roulette
 
 import android.content.ContentValues.TAG
+import android.graphics.PathEffect
 import android.graphics.Region
 import android.os.Bundle
 import android.util.Log
@@ -24,14 +25,16 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.toRect
+import androidx.core.graphics.toRectF
 import ru.axas.roulette.ui.theme.RouletteTheme
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -52,7 +55,7 @@ class MainActivity : ComponentActivity() {
                         rotation.animateTo(
                             targetValue = currentRotation + 360f,
                             animationSpec = infiniteRepeatable(
-                                animation = tween(1000, easing = LinearEasing),
+                                animation = tween(500, easing = LinearEasing),
                                 repeatMode = RepeatMode.Restart
                             )
                         ) {
@@ -62,9 +65,9 @@ class MainActivity : ComponentActivity() {
                         if (currentRotation > 0f) {
                             // Slow down rotation on pause
                             rotation.animateTo(
-                                targetValue = currentRotation + 50,
+                                targetValue = currentRotation + 100,
                                 animationSpec = tween(
-                                    durationMillis = 1250,
+                                    durationMillis = 2250,
                                     easing = LinearOutSlowInEasing
                                 )
                             ) {
@@ -89,7 +92,7 @@ class MainActivity : ComponentActivity() {
                             contentAlignment = Alignment.Center
                         ) {
 
-                            PieChart(patchRoulette)
+                            PieChart3(patchRoulette)
                         }
 
                         Button(onClick = {
@@ -107,18 +110,17 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun PieChart(dataPatch: List<PatchRoulette>,
-             size: Dp = 200.dp) {
+             size: Dp = LocalConfiguration.current.screenWidthDp.dp - 50.dp) {
     val radiusInSize = size / 2
     var radiusInPx = 0F
     val sum = dataPatch.sum()
     var startAngle = -90f
-    val regions = mutableListOf<Region>()
-    val paths = mutableListOf<Path>()
     var start by remember { mutableStateOf(false) }
     val sweepPre by animateFloatAsState(
         targetValue = if (start) 1f else 0f,
         animationSpec = FloatTweenSpec(duration = 1000)
     )
+
     val proportions = dataPatch.map {
         it.value * 100 / sum
     }
@@ -134,29 +136,27 @@ fun PieChart(dataPatch: List<PatchRoulette>,
             .background(Color.Blue)
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = {
-                        val x = it.x - radiusInPx
-                        val y = (it.y - radiusInPx) * -1
-                        val a1 = atan2(x, y) * 180 / PI
-                        val a2 = atan2(x * -1, y * -1) * 180 / PI
-                        val grad = if (a1 < 0) 180 + a2 else a1
-                        var position = -1
-                        var sweepAnglesSum = 0F
+                        onTap = {
+                            val x = it.x - radiusInPx
+                            val y = (it.y - radiusInPx) * -1
+                            val a1 = atan2(x, y) * 180 / PI
+                            val a2 = atan2(x * -1, y * -1) * 180 / PI
+                            val grad = if (a1 < 0) 180 + a2 else a1
+                            var position = -1
+                            var sweepAnglesSum = 0F
 
-                        run breaking@{
-                            sweepAngles.forEachIndexed { index, angles ->
-                                sweepAnglesSum += angles
-                                if (grad < sweepAnglesSum) {
-                                    position = index
-                                    return@breaking
+                            run breaking@{
+                                sweepAngles.forEachIndexed { index, angles ->
+                                    sweepAnglesSum += angles
+                                    if (grad < sweepAnglesSum) {
+                                        position = index
+                                        return@breaking
+                                    }
                                 }
                             }
+                            Log.e(TAG, "onTap: position = $position, x = $x, y = $y")
                         }
-
-                        Log.e(TAG, "onTap: $position")
-
-                    }
-                )
+                                 )
             }
     ) {
         radiusInPx = radiusInSize.toPx()
@@ -171,6 +171,7 @@ fun PieChart(dataPatch: List<PatchRoulette>,
                     val path = Path().apply {
                         moveTo(0f, 0f)
                         arcTo(rect = rect, startAngle, sweepAngles[index] * sweepPre, false)
+
                     }
 
                     val left = path.getBounds().left
@@ -178,31 +179,35 @@ fun PieChart(dataPatch: List<PatchRoulette>,
                     val right = path.getBounds().right
                     val bottom = path.getBounds().bottom
 
-                    val region = Region(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+                    val centerX = path.getBounds().center.x
+                    val centerY = path.getBounds().center.y
 
-                    Log.e(TAG, "size rect: i = $index " +
-                            "left = ${region.bounds.left}  " +
-                            "top = ${region.bounds.top}  " +
-                            "right = ${region.bounds.right} " +
-                            "bottom = ${region.bounds.bottom}")
 
+//                    Log.e(TAG, "size region: i = $index " +
+//                            "left = ${region.bounds.left}  " +
+//                            "top = ${region.bounds.top}  " +
+//                            "right = ${region.bounds.right} " +
+//                            "bottom = ${region.bounds.bottom}")
 
                     val paint = android.graphics.Paint().apply {
                         textAlign = android.graphics.Paint.Align.CENTER
-                        textSize = 10f
+                        textSize = (size / 7).value
                         color = 0xFF000000.toInt()
                     }
 
-                    val first = (left + top + right + bottom) / 4
 
-                    Log.e(TAG,
-                        "center rect: x = ${path.getBounds().topCenter.x}  y = ${path.getBounds().bottomCenter.y} ")
+                    Log.e(TAG, "center rect: index = $index " +
+                            "x = ${path.getBounds().center.x}  " +
+                            "y = ${path.getBounds().center.y} ")
 
+                    it.save()
                     it.nativeCanvas.drawText(
                         dataPatch[index].text,
-                        path.getBounds().topCenter.x,
-                        path.getBounds().bottomCenter.y,
+                        centerX,
+                        centerY,
                         paint)
+
+//                    it.nativeCanvas.rotate(startAngle+ (sweepAngles[index]/2))
 
                     drawPath(path = path, color = patchRoulette.color)
                     path.reset()
@@ -222,13 +227,12 @@ fun PieChart(dataPatch: List<PatchRoulette>,
 @Composable
 fun PieChart2(
     dataPatch: List<PatchRoulette>,
-    size: Dp = 200.dp) {
+    size: Dp = LocalConfiguration.current.screenWidthDp.dp - 50.dp) {
 
     var radiusInPx = 0F
     val sum = dataPatch.sum()
     var startAngle = -90f
     val radiusInSize = size / 2
-    val regions = mutableListOf<Region>()
     val proportions = dataPatch.map { it.value * 100 / sum }
     val sweepAngles = proportions.map { 360 * it / 100 }
 
@@ -239,53 +243,46 @@ fun PieChart2(
             .background(Color.Blue)
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = {
-                        val x = it.x - radiusInPx
-                        val y = (it.y - radiusInPx) * -1
+                        onTap = {
+                            val x = it.x - radiusInPx
+                            val y = (it.y - radiusInPx) * -1
+                            val a1 = atan2(x, y) * 180 / PI
+                            val a2 = atan2(x * -1, y * -1) * 180 / PI
+                            val grad = if (a1 < 0) 180 + a2 else a1
+                            var position = -1
+                            var sweepAnglesSum = 0F
 
-                        val a1 = atan2(x, y) * 180 / PI
-                        val a2 = atan2(x * -1, y * -1) * 180 / PI
-                        val grad = if (a1 < 0) 180 + a2 else a1
-
-//                        Log.e(TAG, "pointerInput onTap: x = $x y = $y")
-//                        Log.e(TAG, "atan2 onTap: grad = $grad")
-//                        Log.e(TAG, "sweepAngles onTap: ${sweepAngles.toList()}")
-
-                        var position = -1
-                        var sweepAnglesSum = 0F
-
-
-                        run breaking@{
-                            sweepAngles.forEachIndexed { index, angles ->
-                                sweepAnglesSum += angles
-                                if (grad < sweepAnglesSum) {
-                                    position = index
-                                    return@breaking
+                            run breaking@{
+                                sweepAngles.forEachIndexed { index, angles ->
+                                    sweepAnglesSum += angles
+                                    if (grad < sweepAnglesSum) {
+                                        position = index
+                                        return@breaking
+                                    }
                                 }
                             }
+
+                            Log.e(TAG, "onTap: $position")
+
                         }
-
-                        Log.e(TAG, "onTap: $position")
-
-                    }
-                )
+                                 )
             }
     ) {
         radiusInPx = radiusInSize.toPx()
 
-        sweepAngles.forEachIndexed { index, fl ->
+        sweepAngles.forEachIndexed { index, sweepAngle ->
 
             drawIntoCanvas {
                 drawArc(
                     color = dataPatch[index].color,
                     startAngle = startAngle,
-                    sweepAngle = sweepAngles[index],
+                    sweepAngle = sweepAngle,
                     useCenter = true
                 )
 
                 val paint = android.graphics.Paint().apply {
-                    textAlign = android.graphics.Paint.Align.RIGHT
-                    textSize = 20f
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = (size / 7).value
                     color = 0xFF000000.toInt()
                 }
 
@@ -293,9 +290,130 @@ fun PieChart2(
                 it.nativeCanvas.drawText(dataPatch[index].text, center.x, center.y, paint)
             }
 
-            startAngle += sweepAngles[index]
+            startAngle += sweepAngle
 
 
+        }
+    }
+}
+
+
+@Composable
+fun PieChart3(dataPatch: List<PatchRoulette>,
+             size: Dp = LocalConfiguration.current.screenWidthDp.dp - 50.dp) {
+    val radiusInSize = size / 2
+    var radiusInPx = 0F
+    val sum = dataPatch.sum()
+    var startAngle = -90f
+    var start by remember { mutableStateOf(false) }
+    val proportions = dataPatch.map {
+        it.value * 100 / sum
+    }
+
+    val sweepAngles = proportions.map {
+        360 * it / 100
+    }
+
+    Canvas(
+            modifier = Modifier
+                .size(size = size)
+                .clip(RoundedCornerShape(percent = 50))
+                .background(Color.Blue)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                            onTap = {
+                                val x = it.x - radiusInPx
+                                val y = (it.y - radiusInPx) * -1
+                                val a1 = atan2(x, y) * 180 / PI
+                                val a2 = atan2(x * -1, y * -1) * 180 / PI
+                                val grad = if (a1 < 0) 180 + a2 else a1
+                                var position = -1
+                                var sweepAnglesSum = 0F
+
+                                run breaking@{
+                                    sweepAngles.forEachIndexed { index, angles ->
+                                        sweepAnglesSum += angles
+                                        if (grad < sweepAnglesSum) {
+                                            position = index
+                                            return@breaking
+                                        }
+                                    }
+                                }
+                                Log.e(TAG, "onTap: position = $position, x = $x, y = $y")
+                            })
+                }
+          ) {
+        radiusInPx = radiusInSize.toPx()
+        translate(radiusInPx, radiusInPx) {
+            drawIntoCanvas {
+                start = true
+
+                dataPatch.forEachIndexed { index, patchRoulette ->
+
+                    val rect = Rect(Offset(-radiusInPx, -radiusInPx), Size(size.toPx(), size.toPx()))
+                    val path = Path().apply {
+                        moveTo(0f, 0f)
+                        arcTo(rect = rect, startAngle, sweepAngles[index], false)
+                    }
+
+                    drawPath(path = path, color = patchRoulette.color)
+
+                    val left = path.getBounds().left.toDp()
+                    val top = path.getBounds().top.toDp()
+                    val right = path.getBounds().right.toDp()
+                    val bottom = path.getBounds().bottom.toDp()
+
+                    val centerX = path.getBounds().center.x
+                    val centerY = path.getBounds().center.y
+
+                    val a1 = atan2(centerX, centerY) * 180 / PI
+
+                    val rotate = a1.toFloat()-90
+
+                    it.rotate(-rotate, centerX, centerY)
+
+                    val paint = android.graphics.Paint().apply {
+                        textAlign = android.graphics.Paint.Align.CENTER
+                        textSize = (size / 7).value
+                        color = 0xFF000000.toInt()
+                    }
+
+                    val textHeight = paint.descent() - paint.ascent();
+                    val textOffset = (textHeight / 2) - paint.descent()
+
+                    it.nativeCanvas.drawText(
+                            dataPatch[index].text,
+                            centerX +2,
+                            centerY + textOffset +1,
+                            paint)
+
+                    Log.e(TAG, "center rect: index = $index " +
+                            "x = ${centerX}  " +
+                            "y = ${centerY}  grad = $rotate")
+
+//                    Log.e(TAG, "rect: index = $index " +
+//                            "left = $left " +
+//                            "top = $top  " +
+//                            "right = $right  " +
+//                            "bottom = $bottom")
+
+//                    Log.e(TAG, "rect: index = $index " +
+//                            "topLeft = $topLeftX x $topLeftY " +
+//                            "topRight = $topRightX x $topRightY  " +
+//                            "bottomLeft = $bottomLeftX x $bottomLeftY  " +
+//                            "bottomRight = $bottomRightX x $bottomRightY")
+
+                    it.rotate(rotate, centerX, centerY)
+
+
+                    path.reset()
+//                    it.nativeCanvas.rotate(startAngle+ (sweepAngles[index]/2))
+                    startAngle += sweepAngles[index]
+
+
+                }
+
+            }
         }
     }
 }
@@ -360,5 +478,5 @@ val patchRoulette = listOf<PatchRoulette>(
         value = 1.0f,
         text = "Скидка 80%",
         color = Color.LightGray
-    )
+    ),
 )
