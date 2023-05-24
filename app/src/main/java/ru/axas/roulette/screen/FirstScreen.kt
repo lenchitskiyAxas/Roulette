@@ -7,12 +7,12 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -27,20 +27,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.paint
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.axas.roulette.models.patchRoulette
-import ru.axas.roulette.util.PieChartCanvas
+import ru.axas.roulette.util.DrawPieChart
 
 @Composable
 fun FirstScreen() {
     val conf = LocalConfiguration.current
-    val sizePieDp by remember { mutableStateOf(conf.screenWidthDp.dp - 30.dp) }
+    val des = LocalDensity.current
     var isPlaying by remember { mutableStateOf(false) }
     var currentRotation by remember { mutableStateOf(0f) }
-    val score = rememberCoroutineScope()
+    val bitmapPainter by remember {
+        mutableStateOf(DrawPieChart().getPieChart(patchRoulette,
+            with(des) { (conf.screenWidthDp.dp - 30.dp).toPx().toInt() }
+        ))
+    }
     val rotation = remember { Animatable(currentRotation) }
 
     LaunchedEffect(isPlaying) {
@@ -57,7 +64,6 @@ fun FirstScreen() {
         }
 
         if (currentRotation > 0f && !isPlaying) {
-            score.launch {
                 // Slow down rotation on pause
                 rotation.animateTo(
                     targetValue = currentRotation + 100,
@@ -71,11 +77,6 @@ fun FirstScreen() {
                     val stoppedPatch = patchRoulette.getOrNull(stoppedIndex)
                     Log.d("FirstScreen", "$value - ${stoppedPatch?.text}")
                 }
-            }.invokeOnCompletion {
-                score.launch {
-                    rotation.snapTo(0f)
-                }
-            }
         }
     }
 
@@ -89,15 +90,9 @@ fun FirstScreen() {
         ) {
             Box(modifier = Modifier
                 .wrapContentSize()
-                .rotate(currentRotation),
-                contentAlignment = Alignment.Center
-            ) {
-                PieChartCanvas(
-                    modifier = Modifier.size(sizePieDp),
-                    dataPatch = patchRoulette
-                )
-            }
-
+                .rotate(currentRotation).
+                paint(painter = bitmapPainter)
+            )
             Button(
                 modifier = Modifier.padding(20.dp),
                 onClick = {
