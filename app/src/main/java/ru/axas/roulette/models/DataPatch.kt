@@ -2,61 +2,59 @@ package ru.axas.roulette.models
 
 import androidx.compose.ui.graphics.Color
 import ru.axas.roulette.R
+import ru.axas.roulette.ui.theme.DeepRedPurple
+import ru.axas.roulette.ui.theme.IntenseOrange
+import ru.axas.roulette.ui.theme.LiteIntenseOrange
+import ru.axas.roulette.ui.theme.LiteRedPurple
 
 
 val patchRoulette = listOf(
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 5%",
-        color = Color.Blue,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "00%",
+        colors = listOf(DeepRedPurple,LiteRedPurple) ,
+        drawableRes = R.drawable. image_pngwing_14183602
     ),
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 10%",
-        color = Color.Yellow,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "10%",
+        colors = listOf(IntenseOrange,LiteIntenseOrange) ,
+        drawableRes = R.drawable.image_pngwing_600
     ),
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 20%",
-        color = Color.Green,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "20%",
+        colors = listOf(DeepRedPurple,LiteRedPurple) ,
+        drawableRes = R.drawable.image_pngwing_21153712
     ),
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 30%",
-        color = Color.Gray,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "30%",
+        colors = listOf(IntenseOrange,LiteIntenseOrange) ,
+        drawableRes = R.drawable.image_pngwing_132035372
     ),
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 40%",
-        color = Color.Red,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "40%",
+        colors = listOf(DeepRedPurple,LiteRedPurple) ,
+        drawableRes = R.drawable. image_pngwing_21153657
     ),
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 50%",
-        color = Color.Cyan,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "50%",
+        colors = listOf(IntenseOrange,LiteIntenseOrange) ,
+        drawableRes = R.drawable.image_pngwing_211544161
     ),
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 60%",
-        color = Color.Blue,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "60%",
+        colors = listOf(DeepRedPurple,LiteRedPurple) ,
+        drawableRes = R.drawable.image_pngwing_14183632
     ),
     PatchRoulette(
         value = 1.0f,
-        text = "Скидка 70%",
-        color = Color.Magenta,
-        drawableRes = R.drawable.ic_launcher_foreground
-    ),
-    PatchRoulette(
-        value = 1.0f,
-        text = "Скидка 80%",
-        color = Color.LightGray,
-        drawableRes = R.drawable.ic_launcher_foreground
+        text = "70%",
+        colors = listOf(IntenseOrange,LiteIntenseOrange) ,
+        drawableRes = R.drawable. image_pngwing_171526003
     ),
 )
