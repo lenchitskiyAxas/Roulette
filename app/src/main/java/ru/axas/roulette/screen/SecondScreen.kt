@@ -1,11 +1,12 @@
 package ru.axas.roulette.screen
 
 
+import android.animation.TimeInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -14,16 +15,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.paint
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
@@ -44,133 +47,171 @@ import androidx.compose.ui.unit.dp
 import ru.axas.roulette.R
 import ru.axas.roulette.models.PatchRoulette
 import ru.axas.roulette.models.RouletteData
-import kotlin.math.absoluteValue
 import kotlin.random.Random
 
+private val FirstEasing = DecelerateInterpolator().toEasing()
+
+fun TimeInterpolator.toEasing() = Easing { x ->
+    getInterpolation(x)
+}
+
 @Composable
-fun SecondScreen(
+fun MainScreen(
     rouletteData: RouletteData
 ) {
+    var isInfinityRoulette by remember { mutableStateOf(false) }
+    var rouletteChoose: PatchRoulette? by remember { mutableStateOf(null) }
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .paint(
+                painter = painterResource(id = R.drawable.image_casino),
+                contentScale = ContentScale.FillHeight,
+            )
+            .background(Color.Black.copy(0.5f))
+            .systemBarsPadding(),
+    ) {
+
+        when (isInfinityRoulette) {
+            true -> InfinityRoulette(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp),
+                rouletteData = rouletteData,
+                inStop = {
+                    rouletteChoose = it
+                }
+            )
+            false -> OneClickRoulette(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp),
+                rouletteData = rouletteData,
+                inStop = {
+                    rouletteChoose = it
+                }
+            )
+        }
+
+        rouletteChoose?.drawableRes?.let { drawable ->
+            Box(modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(20.dp)
+                .paint(painter = painterResource(id = drawable))
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(20.dp)
+                .clip(RoundedCornerShape(10))
+                .background(Color.White.copy(.2f))
+                .padding(horizontal = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Switch(
+                modifier = Modifier
+                    .padding(start = 10.dp),
+                checked = isInfinityRoulette,
+                onCheckedChange = {
+                    isInfinityRoulette = it
+                    rouletteChoose = null
+                })
+
+            Text(
+                modifier = Modifier.padding(start = 10.dp),
+                text = "Infinity",
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+    }
+}
+
+
+@Composable
+fun InfinityRoulette(
+    modifier: Modifier = Modifier,
+    rouletteData: RouletteData,
+    inStop: (PatchRoulette?) -> Unit,
+) {
     var isPlaying by remember { mutableStateOf(false) }
     var currentRotation by remember { mutableStateOf(0f) }
-    var rouletteChoose: PatchRoulette? by remember { mutableStateOf(null) }
 
     MovePieChart(
         isPlaying = isPlaying,
         currentRotation = currentRotation,
         inStop = {
-            rouletteChoose = rouletteData.getChoosePatch(currentRotation)
+            inStop.invoke(rouletteData.getChoosePatch(currentRotation))
         },
         inRotation = { currentRotation = it }
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .paint(
-                painter = painterResource(id = R.drawable.image_casino),
-                contentScale = ContentScale.FillHeight,
-            )
-            .background(Color.Black.copy(0.5f)),
-    ) {
-
-        RouletteBox(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(16.dp)
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {
-                        isPlaying = !isPlaying
-                        rouletteChoose = null
-                    }) ,
-            background = rouletteData.background,
-            roulette = rouletteData.roulette,
-            arrow = rouletteData.arrow,
-            center = rouletteData.center,
-            currentRotation = currentRotation
-        )
-
-        rouletteChoose?.drawableRes?.let { drawable ->
-            Box(modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(20.dp)
-                .paint(painter = painterResource(id = drawable))
-            )
-        }
-    }
+    RouletteBox(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    isPlaying = !isPlaying
+                    inStop.invoke(null)
+                }),
+        background = rouletteData.background,
+        roulette = rouletteData.roulette,
+        arrow = rouletteData.arrow,
+        center = rouletteData.center,
+        currentRotation = currentRotation
+    )
 }
 
-@Composable
-fun FirstScreen(
-    rouletteData: RouletteData
-) {
 
+@Composable
+fun OneClickRoulette(
+    modifier: Modifier = Modifier,
+    rouletteData: RouletteData,
+    inStop: (PatchRoulette?) -> Unit,
+) {
     var currentRotation by remember { mutableStateOf(0f) }
-    var rouletteChoose: PatchRoulette? by remember {
-        mutableStateOf(rouletteData.getChoosePatch(currentRotation))
-    }
     val angle: Float by animateFloatAsState(
         targetValue = currentRotation,
-        animationSpec = tween(8000,
-            easing = CubicBezierEasing(0.7f, 0.2f, 0.1f, 0.8f)),
+        animationSpec = tween(10000,
+            easing = FirstEasing),
         finishedListener = {
-            rouletteChoose = rouletteData.getChoosePatch(currentRotation)
+            inStop.invoke(rouletteData.getChoosePatch(currentRotation))
         }
     )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .paint(
-                painter = painterResource(id = R.drawable.image_casino),
-                contentScale = ContentScale.FillHeight,
-            )
-            .background(Color.Black.copy(0.5f)),
-    ) {
-
-        RouletteBox(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(16.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {
-                        currentRotation += (3000..10000).random().toFloat()
-                        rouletteChoose = null
-                    })
-                .fillMaxWidth(),
-            background = rouletteData.background,
-            roulette = rouletteData.roulette,
-            arrow = rouletteData.arrow,
-            center = rouletteData.center,
-            currentRotation = angle
-        )
-
-        rouletteChoose?.drawableRes?.let { drawable ->
-            Box(modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(20.dp)
-                .paint(painter = painterResource(id = drawable))
-            )
-        }
-
-    }
+    RouletteBox(
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    currentRotation += (3000..10000)
+                        .random()
+                        .toFloat()
+                    inStop.invoke(null)
+                })
+            .fillMaxWidth(),
+        background = rouletteData.background,
+        roulette = rouletteData.roulette,
+        arrow = rouletteData.arrow,
+        center = rouletteData.center,
+        currentRotation = angle
+    )
 }
 
 @Composable
 fun RouletteBox(
-    modifier:Modifier,
+    modifier: Modifier,
     background: Painter?,
     roulette: Painter?,
     arrow: Painter?,
     center: Painter?,
-    currentRotation:Float
-){
+    currentRotation: Float
+) {
     Box(modifier = modifier) {
 
         background?.let { image ->
@@ -230,12 +271,12 @@ fun MovePieChart(
             rotation.animateTo(
                 targetValue = currentRotation + 360f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(1000, easing = CubicBezierEasing(0.6f, 0.4f, 0.6f, 0.7f)),
+                    animation = tween(randomTime, easing = LinearEasing),
                     repeatMode = RepeatMode.Restart
                 )) {
                 inRotation.invoke(value % 360)
             }
-        } else {
+        } else if (currentRotation != 0f) {
             rotation.snapTo(currentRotation)
             val randomCircle = Random.nextInt(100, 400).toFloat()
             val animationResult = rotation.animateTo(

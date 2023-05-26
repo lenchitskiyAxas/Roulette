@@ -18,11 +18,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toArgb
 import ru.axas.roulette.models.PatchRoulette
+import kotlin.math.atan2
 
 class DrawPieChart(
     private val context: Context,
     private val dataPatch: List<PatchRoulette>,
     private val size: Int,
+    private val degreesArrow: Float = 90f
 ) {
 
     fun getPieChart(): BitmapPainter {
@@ -48,26 +50,31 @@ class DrawPieChart(
 
             val vertices = getTriangleVertices(trianglePath)
             if (vertices.size != 3) return BitmapPainter(bitmap.asImageBitmap())
-            val medianX = (vertices[1].x + vertices[2].x + vertices[0].x) / 3
-            val medianY = (vertices[1].y + vertices[2].y + vertices[0].y) / 3
-            val medianXCurrent = (vertices[1].x + vertices[2].x) / 2
-            val medianYCurrent = (vertices[1].y + vertices[2].y) / 2
+            val (vertices0X, vertices0Y) = vertices.getOrZeroFloat(0)
+            val (vertices1X, vertices1Y) = vertices.getOrZeroFloat(1)
+            val (vertices2X, vertices2Y) = vertices.getOrZeroFloat(2)
+            val medianX = (vertices0X + vertices1X + vertices2X) / 3
+            val medianY = (vertices0Y + vertices1Y + vertices2Y) / 3
+            val medianXCurrent = (vertices1X + vertices2X) / 2
+            val medianYCurrent = (vertices1Y + vertices2Y) / 2
 
             val paint = Paint()
             paint.shader = LinearGradientShader(
                 from = Offset(medianXCurrent, medianYCurrent),
-                to = Offset(vertices[0].x, vertices[0].y),
+                to = Offset(vertices0X, vertices0Y),
                 colors = item.colors,
             )
 
-            val drawableSize = size / 20
+            val drawableSize = size / 17
             val drawable = context.getDrawable(item.drawableRes)
             val bitmapDrawable = (drawable as BitmapDrawable).bitmap
             val scaledBitmap =
                 Bitmap.createScaledBitmap(bitmapDrawable, drawableSize, drawableSize, true)
 
             val matrix = Matrix()
-            matrix.postRotate(10f)
+            val angle = atan2(medianYCurrent.toDouble() - medianY,
+                medianXCurrent.toDouble() - medianX)
+            matrix.postRotate(degreesArrow + Math.toDegrees(angle).toFloat())
 
             val rotatedBitmap = Bitmap.createBitmap(
                 scaledBitmap,
@@ -79,15 +86,17 @@ class DrawPieChart(
                 true
             )
 
-            val xDrawableCoordinates = ((medianX + medianXCurrent) /2) - (drawableSize * 2)
-            val yDrawableCoordinates = ((medianY + medianYCurrent)/2) - drawableSize * 2
+            val drawableCoordinatesX =
+                ((((medianX + medianXCurrent) / 2) + medianX) / 2) - drawableSize * 2
+            val drawableCoordinatesY =
+                ((((medianY + medianYCurrent) / 2) + medianY) / 2) - drawableSize * 2
+
             canvas.drawPath(trianglePath.asAndroidPath(), paint)
-            canvas.drawBitmap(rotatedBitmap, xDrawableCoordinates, yDrawableCoordinates, null)
+            canvas.drawBitmap(rotatedBitmap, drawableCoordinatesX, drawableCoordinatesY, null)
             startAngle += sweepAngle
         }
         return BitmapPainter(bitmap.asImageBitmap())
     }
-
 
     fun getPieChartText(): BitmapPainter {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -183,5 +192,8 @@ class DrawPieChart(
         }
         return vertices
     }
+
+    private fun List<PointF>.getOrZeroFloat(index: Int) =
+        Pair(getOrNull(index)?.x ?: 0f, getOrNull(index)?.y ?: 0f)
 }
 

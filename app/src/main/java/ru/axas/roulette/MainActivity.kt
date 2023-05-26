@@ -7,17 +7,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.core.view.WindowCompat
 import ru.axas.roulette.models.RouletteData
 import ru.axas.roulette.models.patchRoulette
-import ru.axas.roulette.screen.FirstScreen
-import ru.axas.roulette.screen.SecondScreen
+import ru.axas.roulette.screen.MainScreen
 import ru.axas.roulette.ui.theme.RouletteTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val density = LocalDensity.current
             val configuration = LocalConfiguration.current
@@ -34,8 +34,7 @@ class MainActivity : ComponentActivity() {
             }
 
             RouletteTheme {
-//                SecondScreen(rouletteData = dataRoulette)
-                FirstScreen(rouletteData = dataRoulette)
+                MainScreen(rouletteData = dataRoulette)
             }
         }
     }
