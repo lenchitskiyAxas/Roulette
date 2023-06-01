@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import ru.axas.roulette.R
 import ru.axas.roulette.models.PatchRoulette
 import ru.axas.roulette.models.RouletteData
+import ru.axas.roulette.util.rememberOpenIntentUrl
 import kotlin.random.Random
 
 private val FirstEasing = DecelerateInterpolator().toEasing()
@@ -61,7 +63,7 @@ fun MainScreen(
 ) {
     var isInfinityRoulette by remember { mutableStateOf(false) }
     var rouletteChoose: PatchRoulette? by remember { mutableStateOf(null) }
-
+val openUri = rememberOpenIntentUrl()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -126,7 +128,17 @@ fun MainScreen(
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 style = MaterialTheme.typography.titleLarge
             )
+
+            Button(
+                modifier = Modifier.padding(10.dp),
+                onClick = {
+                    openUri.invoke(null, "lucky_delivery://pay") }) {
+                Text(text = "open = custom URI")
+            }
         }
+
+
+
     }
 }
 
